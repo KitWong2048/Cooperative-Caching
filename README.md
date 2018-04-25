@@ -29,3 +29,5 @@ out some other positions of the media content.
 in which each node randomly storges 
 segments.
 
+## How to
+Open the project in "Simulator src" with eclipes
