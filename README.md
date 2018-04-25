@@ -1,7 +1,7 @@
 # Cooperative-Caching
 
 ## Description
-The code simulate 3 different segment caching algrithms for P2P networks.
+The code simulates 3 different segment caching algrithms for P2P networks.
 
 ### 1) The centralized caching algorithm
 which iterates through each segment following a descending
