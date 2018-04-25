@@ -1,0 +1,26 @@
+what,kind,bundleId,bundleVersion,description,time
+java.vm.vendor,sysinfo,,,"Sun Microsystems Inc.",1271670018062
+java.vm.version,sysinfo,,,"16.0-b13",1271670018062
+executed,command,org.eclipse.ui,3.5.0.I20090604-2000,"org.eclipse.ui.file.save",1271670064074
+deactivated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670068945
+activated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670078360
+activated,view,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.PackageExplorer",1271670081545
+deactivated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670084160
+activated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670085744
+opened,editor,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.CompilationUnitEditor",1271670100140
+activated,editor,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.CompilationUnitEditor",1271670100304
+deactivated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670109681
+activated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670139257
+activated,view,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.PackageExplorer",1271670141740
+opened,editor,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.CompilationUnitEditor",1271670141943
+activated,editor,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.CompilationUnitEditor",1271670142089
+deactivated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670144439
+activated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670181845
+deactivated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670183084
+activated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670246566
+deactivated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670252476
+activated,workbench,org.eclipse.ui.workbench,3.5.0.I20090603-2000,"",1271670259741
+activated,view,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.PackageExplorer",1271670263310
+opened,editor,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.CompilationUnitEditor",1271670271592
+activated,editor,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.CompilationUnitEditor",1271670271753
+activated,view,org.eclipse.jdt.ui,3.5.0.v20090604,"org.eclipse.jdt.ui.PackageExplorer",1271670306766

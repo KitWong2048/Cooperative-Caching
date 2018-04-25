@@ -1,0 +1,36 @@
+package Simulator.CachingStrategy;
+
+import java.util.Random;
+
+import Simulator.*;
+import Simulator.Peer.*;
+
+public class RandomCaching implements ICachingStrategy
+{
+	public RandomCaching()
+	{
+		System.out.println("Random Caching");
+	}
+
+	public void join(Simulator sim, int pid)
+	{
+		PeerCollection pc = sim.getPeerCollection();
+		Peer p = pc.get(pid);
+		Random r = new Random();
+		int range = sim.getConfig().numSegment;
+		while (p.residualCachingCapacity() > 0
+				&& p.numCachedSegments() < sim.getConfig().numSegment)
+		{
+			int num = r.nextInt(sim.getConfig().numSegment);
+			if (!p.cached(num))
+			{
+				p.cacheSegment(num);
+			}
+		}
+	}
+
+	public void cache(Simulator sim)
+	{
+		// nothing
+	}
+}

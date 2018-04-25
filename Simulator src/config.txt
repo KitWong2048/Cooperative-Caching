@@ -1,0 +1,36 @@
+#cachingScheme (1:my, 2:centralized, 3:random, 4:sliding)
+1
+#searchScheme (1:my, 2:centralized, 3:DHT, 4:flooding)
+1
+#cachingCapacityScheme (1:zipf, 2:uniform, 3:geometric)
+1
+#cachingCapacity (zipf population if cachingCapacityScheme=zipf, p if geometric)
+24
+#duration
+10000
+#topologySize
+3072
+#distanceFile
+3072.d
+#numSegment
+128
+#lambda
+0.1427
+#tau
+7200
+#exchangePeriod (used in MySearch)
+60
+#numCloseNeighbor (used in MySearch)
+4
+#numRandomNeighbor (used in MySearch, flooding)
+4
+#tableRowSize (used in MySearch, flooding and DHT)
+5
+#maxTTL (used in MySearch)
+5
+#epsilon (used in MyCaching)
+0.1
+#random peer set size (used in MyCaching)
+10
+#flooding TTL (used in flooding)
+4

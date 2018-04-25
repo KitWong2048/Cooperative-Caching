@@ -1,0 +1,20 @@
+package Simulator.CachingStrategy;
+
+import Simulator.Simulator;
+
+public class CooperativeCaching implements ICachingStrategy
+{
+	@Override
+	public void cache(Simulator sim)
+	{
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void join(Simulator sim, int pid)
+	{
+		// TODO Auto-generated method stub
+		
+	}
+}

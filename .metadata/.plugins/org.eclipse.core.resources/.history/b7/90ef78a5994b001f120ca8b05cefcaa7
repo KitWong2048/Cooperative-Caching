@@ -1,0 +1,354 @@
+package Simulator.CachingStrategy;
+
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Random;
+import java.util.Vector;
+import java.util.TreeSet;
+import java.util.TreeMap;
+import Simulator.Simulator;
+import Simulator.Config;
+import Simulator.Distance;
+import Simulator.Peer.*;
+import Simulator.Utility.RandomGenerator;
+
+public class CentralizedCaching implements ICachingStrategy
+{
+	public CentralizedCaching()
+	{
+		System.out.println("Centralized Caching");
+	}
+
+	public void join(Simulator sim, int pid)
+	{
+		// nothing
+	}
+
+	public void cache(Simulator sim)
+	{
+		// get the peer collection and an iterator
+		PeerCollection pc = sim.getPeerCollection();
+		PeerCollectionIterator iter = new PeerCollectionIterator(pc.iterator());
+
+		// compute total capacity
+		double totalCap = 0;
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			totalCap += p.cachingCapacity;
+		}
+		System.out.println("total cap = " + totalCap);
+
+		// sortSegmentByPopularities
+		TreeMap<Double, Integer> seg = new TreeMap<Double, Integer>(); // <popularity,sid>
+		Config config = sim.getConfig();
+		double[] popularity = sim.getPopularity();
+		System.out.println("Popularity:");
+		for (int i = 0; i < config.numSegment; i++)
+		{
+			seg.put(popularity[i], i);
+			System.out.println("p[" + i + "] = " + popularity[i]);
+		}
+
+		System.out.println("Start running centralized caching alg");
+
+		// for each segment, run k-median heuristic
+		// Iterator<Map.Entry<Double,Integer>> segIter =
+		// seg.entrySet().iterator();
+		int round = 1;
+		Iterator<Map.Entry<Double, Integer>> segIter = seg.descendingMap()
+				.entrySet().iterator();
+		while (segIter.hasNext())
+		{
+			Map.Entry<Double, Integer> entry = segIter.next();
+			int sid = entry.getValue();
+
+			System.out.println("round " + round);
+			System.out.println("sid = " + sid);
+
+			int ps_C = new Double(popularity[sid] * totalCap).intValue();
+			int k = Math.min(ps_C, pc.size());
+
+			System.out.println("p_s * C = " + ps_C + ", N = " + pc.size());
+
+			TreeSet<Integer> F = new TreeSet<Integer>();
+			iter.set(sim.getPeerCollection().iterator());
+			while (iter.hasNext())
+			{
+				Peer p = iter.next();
+				if (p.residualCachingCapacity() > 0)
+				{
+					F.add(p.pid);
+				}
+			}
+			if (F.isEmpty())
+			{
+				System.out.println("F is empty");
+				break;
+			}
+			System.out.println("before kMedianHeuristic");
+			TreeSet<Integer> S = kMedianHeuristic(sim, F, k);
+			System.out.println("after kMedianHeuristic");
+
+			Iterator<Integer> SIter = S.iterator();
+			while (SIter.hasNext())
+			{
+				Integer pid = SIter.next();
+				Peer p = pc.get(pid);
+				p.cacheSegment(sid);
+			}
+
+			int resiCap = 0;
+			iter.set(sim.getPeerCollection().iterator());
+			while (iter.hasNext())
+			{
+				Peer p = iter.next();
+				resiCap += p.residualCachingCapacity();
+			}
+			System.out.println("after cache seg#" + sid + ", residual cap = "
+					+ resiCap);
+
+			// System.out.println("----------------------------");
+			round++;
+		}
+
+		// random cache
+		/*
+		 * iter.set(sim.getPeerCollection().iterator());
+		 * 
+		 * Random r = new Random(); while (iter.hasNext()) { Peer p =
+		 * iter.next(); System.out.println("pid=" + p.pid + ", resi cap = " +
+		 * p.residualCachingCapacity()); while (p.residualCachingCapacity() > 0)
+		 * { int n = r.nextInt(config.numSegment); System.out.println("n=" + n);
+		 * if (!p.cached(n)) { p.cacheSegment(n); System.out.println("cache n="
+		 * + n); } } }
+		 */
+		iter.set(sim.getPeerCollection().iterator());
+		RandomGenerator rg = new RandomGenerator(popularity, config.numSegment);
+
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			while (p.residualCachingCapacity() > 0
+					&& p.numCachedSegments() < config.numSegment)
+			{
+				int index = rg.generate();
+				while (p.cached(index))
+				{
+					index = rg.generate();
+				}
+				p.cacheSegment(index);
+			}
+		}
+		int resiCap = 0;
+		iter.set(sim.getPeerCollection().iterator());
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			resiCap += p.residualCachingCapacity();
+		}
+		System.out.println("Finallly, residual cap = " + resiCap);
+
+		System.out.println("Finish running centralized caching alg");
+	}
+
+	// =============================================
+	// k-median
+	// =============================================
+
+	public class OpPair
+	{
+		public int first;
+		public int second;
+
+		public OpPair(int f, int s)
+		{
+			first = f;
+			second = s;
+		}
+	}
+
+	// private static final double STEP_SIZE = 0.000000001;
+	private static final double INVALID_DISTANCE = 999999;
+	private static final double THRESHOLD = 0.001;
+
+	// k-median heuristic
+	public TreeSet<Integer> kMedianHeuristic(Simulator sim, TreeSet<Integer> F,
+			int k)
+	{
+
+		// S<-any feasible solution
+		TreeSet<Integer> S = new TreeSet<Integer>();
+		Iterator<Integer> FIter;
+
+		/*
+		 * System.out.println("parameters of kMedianHeuristic");
+		 * System.out.print("F = {"); FIter = F.iterator(); while
+		 * (FIter.hasNext()) { System.out.print(FIter.next() + " "); }
+		 * System.out.println("}");
+		 */
+		System.out.println("|F| = " + F.size());
+		System.out.println("k = " + k);
+
+		if (F.size() <= k)
+		{
+			FIter = F.iterator();
+			while (FIter.hasNext())
+			{
+				S.add(FIter.next());
+			}
+			return S;
+		}
+
+		Random r = new Random();
+		while (S.size() < k)
+		{
+			FIter = F.iterator();
+			int bound = r.nextInt(F.size());
+			for (int i = 0; i < bound; i++)
+			{
+				FIter.next();
+			}
+			Integer item = FIter.next();
+			S.add(item);
+		}
+		/*
+		 * System.out.print("S init = {"); Iterator<Integer> SIter =
+		 * S.iterator(); while (SIter.hasNext()) { System.out.print(SIter.next()
+		 * + " "); } System.out.println("}");
+		 */
+		System.out.println("|S_init| = " + S.size());
+
+		// while there exists op s.t. op is admissible
+		// do op
+		// return S
+		boolean loop = true;
+
+		while (loop)
+		{
+			loop = false;
+			double oldCost = cost(sim, S);
+			// System.out.println("old cost = " + oldCost);
+			Vector<OpPair> opPairVec = getAllOp(F, S);
+			// System.out.println("opPairVec size = " + opPairVec.size());
+			while (opPairVec.size() > 0)
+			{
+				int index = r.nextInt(opPairVec.size());
+				OpPair opPair = opPairVec.remove(index);
+				S = op(S, opPair);
+				double newCost = cost(sim, S);
+				// System.out.println("new cost = " + newCost);
+				if (admissible(oldCost, newCost))
+				{
+					// System.out.println("admissible");
+					double percentageImproved = (oldCost - newCost) / oldCost;
+					if (percentageImproved > THRESHOLD)
+					{
+						loop = true;
+					}
+					break;
+				}
+				else
+				{
+					// System.out.println("not admissible");
+					OpPair opPairRollBack = new OpPair(opPair.second,
+							opPair.first);
+					S = op(S, opPairRollBack);
+				}
+			}
+		}
+
+		/*
+		 * System.out.print("OPT S = {"); SIter = S.iterator(); while
+		 * (SIter.hasNext()) { System.out.print(SIter.next() + " "); }
+		 * System.out.println("}");
+		 */
+		return S;
+	}
+
+	// **
+	// return all pair of operations
+	// F: set of facilities
+	// S: set of opened facilities (S is subset of F)
+	// O(|S| |C|)
+	public Vector<OpPair> getAllOp(TreeSet<Integer> F, TreeSet<Integer> S)
+	{
+		TreeSet<Integer> C = new TreeSet<Integer>(); // set of closed facilities
+		// (C=F\S)
+		C.addAll(F);
+		Iterator<Integer> SIter = S.iterator();
+		while (SIter.hasNext())
+		{
+			C.remove(SIter.next());
+		}
+
+		Vector<OpPair> opPairVec = new Vector<OpPair>();
+		SIter = S.iterator();
+		while (SIter.hasNext())
+		{
+			int s = SIter.next();
+			Iterator<Integer> CIter = C.iterator();
+			while (CIter.hasNext())
+			{
+				int c = CIter.next();
+				opPairVec.add(new OpPair(s, c));
+			}
+		}
+
+		return opPairVec;
+	}
+
+	// **
+	// operation (e.g. swap)
+	public TreeSet<Integer> op(TreeSet<Integer> S, OpPair op)
+	{
+		S.remove(new Integer(op.first));
+		S.add(new Integer(op.second));
+		return S;
+	}
+
+	// cost of opening facilities S
+	// O(N |S|)
+	public double cost(Simulator sim, TreeSet<Integer> S)
+	{
+		PeerCollection pc = sim.getPeerCollection();
+		PeerCollectionIterator iter = new PeerCollectionIterator(pc.iterator());
+		Distance distance = sim.getDistance();
+		double totalDistance = 0;
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			double dist = distanceToFacility(p.pid, S, distance);
+			totalDistance += dist;
+		}
+		return totalDistance;
+	}
+
+	// **
+	// O(|S|)
+	public double distanceToFacility(int pid, TreeSet<Integer> S, Distance dist)
+	{
+		double minDist = INVALID_DISTANCE;
+		Iterator<Integer> SIter = S.iterator();
+		while (SIter.hasNext())
+		{
+			int spid = SIter.next();
+			Double d = new Double(dist.d[pid][spid]);
+			if (d < minDist)
+			{
+				minDist = d;
+			}
+		}
+		return minDist;
+	}
+
+	// **
+	public boolean admissible(double oldCost, double newCost)
+	{
+		if (newCost < oldCost)
+		{
+			return true;
+		}
+		return false;
+	}
+}

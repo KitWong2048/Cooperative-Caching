@@ -1,0 +1,424 @@
+package Simulator;
+
+import java.util.*;
+import Simulator.Handler.*;
+import Simulator.Peer.*;
+import Simulator.Utility.*;
+import Simulator.CachingStrategy.*;
+import Simulator.SegmentSearch.*;
+
+public class Simulator
+{
+	private Config config;
+	private PeerCollection pc;
+	private SimulatorObserver so;
+	private Handler handler;
+	private int time;
+	private int nextArrTime;
+	private Distance dist;
+	private CachingStrategyContext cachingContext;
+	private double[] popularity;
+	private SegmentSearchContext searchContext;
+	public int serverID;
+
+	/**
+	 * initialize the simulator, compute the distance
+	 * 
+	 * @param conf
+	 * @param d
+	 */
+	private void init(Config conf, Distance d)
+	{
+		config = conf;
+		dist = d;
+		pc = new PeerCollection(conf.topologySize);
+		so = new SimulatorObserver();
+		handler = new JoinHandler().setSuccessor(new LeaveHandler());
+		time = 1;
+
+		Exponential e = new Exponential(config.lambda);
+		nextArrTime = time + e.generate();
+
+		switch (config.cachingScheme)
+		{
+		case CachingStrategyContext.MY_CACHING:
+			cachingContext = new CachingStrategyContext(new MyCachingStrategy());
+			break;
+		case CachingStrategyContext.CENTRALIZED_CACHING:
+			cachingContext = new CachingStrategyContext(
+					new CentralizedCaching());
+			break;
+		case CachingStrategyContext.RANDOM_CACHING:
+			cachingContext = new CachingStrategyContext(new RandomCaching());
+			break;
+		case CachingStrategyContext.SLIDING_WINDOW:
+			cachingContext = new CachingStrategyContext(
+					new SlidingWindowCaching());
+			break;
+		default:
+			System.out.println("invalid caching scheme. exit program!");
+			System.exit(1);
+			break;
+		}
+
+		switch (config.searchScheme)
+		{
+		case SegmentSearchContext.MY_SEARCH:
+			searchContext = new SegmentSearchContext(new MySegmentSearch());
+			break;
+		case SegmentSearchContext.CENTRALIZED_SEARCH:
+			searchContext = new SegmentSearchContext(
+					new CentralizedSegmentSearch());
+			break;
+		case SegmentSearchContext.DHT:
+			searchContext = new SegmentSearchContext(new DHT());
+			break;
+		case SegmentSearchContext.FLOODING:
+			searchContext = new SegmentSearchContext(new Flooding());
+			break;
+		default:
+			System.out.println("invalid search scheme. exit program!");
+			System.exit(1);
+			break;
+		}
+
+		popularity = new double[config.numSegment];
+		Random r = new Random();
+		Zipf zipf = new Zipf(config.numSegment, 1);
+		for (int i = 1; i <= config.numSegment; i++)
+		{
+			double freq = zipf.frequency(i);
+			boolean assigned = false;
+			do
+			{
+				int num = r.nextInt(config.numSegment);
+				if (popularity[num] == 0)
+				{
+					popularity[num] = freq;
+					assigned = true;
+				}
+			} while (!assigned);
+			// System.out.print("p[" + i + "]=" + popularity[i-1] + " ");
+		}
+
+		for (int i = config.numPeer() - 1; i >= 0; i--)
+		{
+			handler.handle(Handler.JOIN, this, i);
+			System.out.println("add peer " + i);
+		}
+
+		do
+		{
+			serverID = r.nextInt(config.topologySize);
+		} while (pc.exist(serverID));
+		handler.handle(Handler.JOIN, this, serverID);
+		Peer peer = pc.get(serverID);
+		for (int sid = 0; sid < config.numSegment; sid++)
+		{
+			peer.cacheSegment(sid);
+		}
+	}
+
+	public void run(Config conf, Distance d)
+	{
+
+		init(conf, d);
+
+		while (true)
+		{
+
+			System.out.println("time = " + time + ", numPeer = " + pc.size());
+
+			int pid = Peer.BAD_PID;
+
+			// join event
+			pid = checkJoinEvent();
+
+			if (pid != Peer.BAD_PID)
+			{
+				handler.handle(Handler.JOIN, this, pid);
+				nextArrTime += new Exponential(config.lambda).generate();
+			}
+
+			// leave event
+			do
+			{
+				pid = checkLeaveEvent();
+				if (pid != Peer.BAD_PID)
+				{
+					handler.handle(Handler.LEAVE, this, pid);
+				}
+			} while (pid != Peer.BAD_PID);
+
+			// collect metric
+			if (time > config.duration)
+			{
+				System.out.println("time = " + time + ", numPeer = "
+						+ pc.size());
+
+				so.clear();
+				so.notifyWithoutCache(this);
+				so.output2File(this);
+
+				so.clear();
+				so.notify(this);
+				so.output2File(this);
+
+				so.clear();
+				so.notify(this);
+				so.output2File(this);
+
+				so.clear();
+				so.notify(this);
+				so.output2File(this);
+
+				so.clear();
+				so.notify(this);
+				so.output2File(this);
+
+				so.clear();
+				so.notify(this);
+				so.output2File(this);
+
+				so.clear();
+				so.notify(this);
+				so.output2File(this);
+
+				so.clear();
+				so.notify(this);
+				so.output2File(this);
+
+				so.clear();
+				so.notify(this);
+				so.output2File(this);
+
+				so.clear();
+				so.notify(this);
+				so.output2File(this);
+			}
+
+			if (time > config.duration)
+			{
+				break;
+			}
+
+			time++;
+		}
+
+		// so.output();
+		// so.output2File(this);
+
+		/*
+		 * 
+		 * //SegmentSearchContext context = new SegmentSearchContext(new
+		 * MySegmentSearch()); SegmentSearchContext context = new
+		 * SegmentSearchContext(new DHT()); context.execute();
+		 */
+	}
+
+	private int checkJoinEvent()
+	{
+
+		int pid = Peer.BAD_PID;
+
+		if (time >= nextArrTime)
+		{
+			do
+			{
+				Random r = new Random();
+				pid = r.nextInt(config.topologySize);
+			} while (pc.exist(pid) || pid == serverID);
+		}
+		return pid;
+	}
+
+	private int checkLeaveEvent()
+	{
+		int pid = Peer.BAD_PID;
+
+		PeerCollectionIterator iter = new PeerCollectionIterator(pc.iterator());
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			if (p.arrtime + p.lifetime <= time && p.pid != serverID)
+			{
+				pid = p.pid;
+				break;
+			}
+		}
+
+		return pid;
+
+	}
+
+	public PeerCollection getPeerCollection()
+	{
+		return pc;
+	}
+
+	public Config getConfig()
+	{
+		return config;
+
+	}
+
+	public int getTime()
+	{
+		return time;
+	}
+
+	public Distance getDistance()
+	{
+		return dist;
+	}
+
+	public CachingStrategyContext getCachingStrategyContext()
+	{
+		return cachingContext;
+	}
+
+	public double[] getPopularity()
+	{
+		return popularity;
+	}
+
+	public SegmentSearchContext getSegmentSearchContext()
+	{
+		return searchContext;
+	}
+
+	public double[] getSupply()
+	{
+		double[] segCount = new double[config.numSegment];
+		double totalSegCount = 0;
+		for (int s = 0; s < config.numSegment; s++)
+		{
+			segCount[s] = 0;
+			PeerCollectionIterator iter = new PeerCollectionIterator(pc
+					.iterator());
+			while (iter.hasNext())
+			{
+				Peer p = iter.next();
+				if (p.cached(s))
+				{
+					segCount[s]++;
+				}
+			}
+			totalSegCount += segCount[s];
+		}
+		double[] supply = new double[config.numSegment];
+		// System.out.println("segCount ");
+		for (int s = 0; s < config.numSegment; s++)
+		{
+			// System.out.print(segCount[s] + " ");
+			if (totalSegCount == 0)
+			{
+				supply[s] = 0;
+			}
+			else
+			{
+				supply[s] = segCount[s] / totalSegCount;
+			}
+		}
+		// System.out.println("");
+		return supply;
+	}
+
+	public static int BAD_D = 9999;
+
+	public double getD1(int pid, int sid)
+	{
+		double minD = BAD_D;
+		PeerCollectionIterator iter = new PeerCollectionIterator(pc.iterator());
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			if (p.cached(sid) && dist.d[pid][p.pid] < minD)
+			{
+				minD = dist.d[pid][p.pid];
+			}
+		}
+		if (minD == BAD_D)
+		{
+			// System.out.println("warning: getD1, minD == BAD_D");
+			return new Double(BAD_D);
+		}
+		return minD;
+	}
+
+	public double getD2(int pid, int sid)
+	{
+		double minD = BAD_D;
+		double minPid = 0;
+		PeerCollectionIterator iter = new PeerCollectionIterator(pc.iterator());
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			if (p.cached(sid) && dist.d[pid][p.pid] < minD)
+			{
+				minD = dist.d[pid][p.pid];
+				minPid = p.pid;
+			}
+		}
+		if (minD == BAD_D)
+		{
+			// System.out.println("warning: getD2(), minD == BAD_D");
+			return new Double(BAD_D);
+		}
+
+		iter.set(pc.iterator());
+		double minD2 = BAD_D;
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			if (p.cached(sid) && p.pid != pid && p.pid != minPid
+					&& dist.d[pid][p.pid] < minD2)
+			{
+				minD2 = dist.d[pid][p.pid];
+			}
+		}
+
+		if (minD2 == BAD_D)
+		{
+			// System.out.println("warning: getD2(), minD2 == BAD_D");
+			return new Double(BAD_D);
+		}
+		return minD2;
+	}
+
+	public TreeSet<Integer> getRandomPeerSet(int max)
+	{
+		TreeSet<Integer> peerSet = new TreeSet<Integer>();
+		if (pc.size() < max)
+		{
+			PeerCollectionIterator iter = new PeerCollectionIterator(pc
+					.iterator());
+			while (iter.hasNext())
+			{
+				Peer p = iter.next();
+				peerSet.add(p.pid);
+			}
+			return peerSet;
+		}
+		while (peerSet.size() < max)
+		{
+			peerSet.add(pc.getRandomPeer(config.topologySize));
+		}
+		return peerSet;
+	}
+
+	/*
+	 * public Vector<Integer> getRandomPeerSet(int max, int sid) {
+	 * Vector<Integer> peerSet = new Vector<Integer>(); PeerCollectionIterator
+	 * iter = new PeerCollectionIterator(pc.iterator()); while (iter.hasNext())
+	 * { Peer peer = iter.next(); if (peer.cached(sid)) { peerSet.add(peer.pid);
+	 * } } Random r = new Random(); while (peerSet.size() > max) { int index =
+	 * r.nextInt(peerSet.size()); peerSet.removeElementAt(index); } return
+	 * peerSet; }
+	 */
+
+	public int getServerID()
+	{
+		return serverID;
+	}
+}

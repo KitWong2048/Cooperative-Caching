@@ -1,0 +1,243 @@
+package Simulator;
+
+import java.util.*;
+import java.io.*;
+import java.text.*;
+
+import Simulator.Peer.Peer;
+import Simulator.Peer.PeerCollection;
+import Simulator.Peer.PeerCollectionIterator;
+import Simulator.SegmentSearch.SearchResult;
+
+public class SimulatorObserver
+{
+	// dunno the meaning
+	private Vector<Integer> vec;
+	
+	// measure the difference in popularity and supply 
+	private Vector<Double> discrepancyVec;
+	
+	// measure segment distance: an interesting metric
+	private Vector<Double> segmentDistanceVec;
+	
+	// measure the end-to-end delay
+	private Vector<Double> latencyVec;
+	
+	// measure hit-rate for the lookup method
+	private Vector<Double> hitRateVec;
+
+	
+	public SimulatorObserver()
+	{
+		vec = new Vector<Integer>();
+		discrepancyVec = new Vector<Double>();
+		segmentDistanceVec = new Vector<Double>();
+		latencyVec = new Vector<Double>();
+		hitRateVec = new Vector<Double>();
+	}
+
+	public void notify(Simulator sim)
+	{
+		// System.out.println("size of PeerCollection = " + pc.size());
+
+		PeerCollection pc = sim.getPeerCollection();
+
+		sim.getCachingStrategyContext().cache(sim);
+		SearchResult sr = sim.getSegmentSearchContext().search(sim);
+
+		// printSegBitSet(pc);
+
+		vec.add(pc.size());
+		discrepancyVec.add(sampleDiscrepancy(sim));
+		segmentDistanceVec.add(sr.segmentDistance);
+		latencyVec.add(sr.latency);
+		hitRateVec.add(sr.hitRate);
+	}
+
+	public void notifyWithoutCache(Simulator sim)
+	{
+		PeerCollection pc = sim.getPeerCollection();
+		SearchResult sr = sim.getSegmentSearchContext().search(sim);
+		vec.add(pc.size());
+		discrepancyVec.add(sampleDiscrepancy(sim));
+		segmentDistanceVec.add(sr.segmentDistance);
+		latencyVec.add(sr.latency);
+		hitRateVec.add(sr.hitRate);
+	}
+
+	public void clear()
+	{
+		vec.clear();
+		discrepancyVec.clear();
+		segmentDistanceVec.clear();
+		latencyVec.clear();
+		hitRateVec.clear();
+	}
+
+	public void output()
+	{
+		System.out.println("---report (begin)---");
+		System.out.println("avg num peer: " + getPeerCollectionSize());
+		System.out.println("discrepancy: " + getDiscrepancy());
+		System.out.println("segment distance: " + getSegmentDistance());
+		System.out.println("latency: " + getLatency());
+		System.out.println("hit rate: " + getHitRate());
+		System.out.println("---report (end) ---");
+	}
+
+	public void output2File(Simulator sim)
+	{
+		try
+		{
+			StringBuffer fileout = new StringBuffer("result.txt");
+			System.out.println("write result to file " + fileout);
+			PrintWriter pw = new PrintWriter(new FileWriter(fileout.toString(),
+					true));
+			String str = new String();
+			Config config = sim.getConfig();
+			str = config.toString() + "," + "x" + "," + this.toString();
+			pw.println(str);
+			pw.close();
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+	}
+
+	private double getPeerCollectionSize()
+	{
+		double size = 0;
+		for (int i = 0; i < vec.size(); i++)
+		{
+			int s = vec.elementAt(i);
+			size += s;
+		}
+		size /= vec.size();
+		return size;
+	}
+
+	private void printSegBitSet(PeerCollection pc)
+	{
+		PeerCollectionIterator iter = new PeerCollectionIterator(pc.iterator());
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			System.out.println("pid=" + p.pid + " cap=" + p.cachingCapacity
+					+ " " + p.getBitSetString());
+		}
+	}
+
+	private double sampleDiscrepancy(Simulator sim)
+	{
+		double[] supply = sim.getSupply();
+		double[] popularity = sim.getPopularity();
+		Config config = sim.getConfig();
+
+		double discrepancy = 0;
+		for (int s = 0; s < config.numSegment; s++)
+		{
+			if (supply[s] == 0)
+			{
+				System.out.println("error: supply = 0");
+				System.exit(0);
+			}
+
+			if (supply[s] > 0 && popularity[s] > 0)
+			{
+				// discrepancy += popularity[s] * (supply[s] - popularity[s]) *
+				// (supply[s] - popularity[s]) / supply[s] / supply[s];
+				discrepancy += popularity[s] * popularity[s] / supply[s];
+			}
+		}
+
+		DecimalFormat myformat = new DecimalFormat("0.0000");
+
+		System.out.print("popularity ");
+		for (int s = 0; s < config.numSegment; s++)
+		{
+			System.out.print(myformat.format(popularity[s]) + " ");
+		}
+		System.out.println("");
+
+		System.out.print("supply ");
+		for (int s = 0; s < config.numSegment; s++)
+		{
+			System.out.print(myformat.format(supply[s]) + " ");
+		}
+		System.out.println("");
+		// discrepancy= Math.sqrt(discrepancy);
+		System.out.println("discrepancy=" + discrepancy);
+
+		return discrepancy;
+	}
+
+	private double getDiscrepancy()
+	{
+		double disc = 0;
+		for (int i = 0; i < discrepancyVec.size(); i++)
+		{
+			double d = discrepancyVec.elementAt(i);
+			disc += d;
+		}
+		disc /= discrepancyVec.size();
+		return disc;
+	}
+
+	/*
+	 * private double sampleSearchDistance(Simulator sim) { PeerCollection pc =
+	 * sim.getPeerCollection(); PeerCollectionIterator iter = new
+	 * PeerCollectionIterator(pc.iterator()); Config config = sim.getConfig();
+	 * double [] popularity = sim.getPopularity(); double dist = 0; while
+	 * (iter.hasNext()) { Peer p = iter.next(); for (int s=0;
+	 * s<config.numSegment; s++) { double d1 = sim.getD1(p.pid, s); dist +=
+	 * popularity[s]*d1; } } dist /= pc.size();
+	 * System.out.println("search distance=" + dist); return dist; }
+	 */
+
+	private double getSegmentDistance()
+	{
+		double dist = 0;
+		for (int i = 0; i < segmentDistanceVec.size(); i++)
+		{
+			double d = segmentDistanceVec.elementAt(i);
+			dist += d;
+		}
+		dist /= segmentDistanceVec.size();
+		return dist;
+	}
+
+	private double getLatency()
+	{
+		double latency = 0;
+		for (int i = 0; i < latencyVec.size(); i++)
+		{
+			latency += latencyVec.elementAt(i);
+		}
+		latency /= latencyVec.size();
+		return latency;
+	}
+
+	private double getHitRate()
+	{
+		double hitRate = 0;
+		for (int i = 0; i < hitRateVec.size(); i++)
+		{
+			hitRate += hitRateVec.elementAt(i);
+		}
+		hitRate /= hitRateVec.size();
+		return hitRate;
+	}
+
+	public String toString()
+	{
+		String str = new String();
+		DecimalFormat myformat = new DecimalFormat("0.00000000");
+		str += myformat.format(getDiscrepancy()) + ",";
+		str += myformat.format(getSegmentDistance()) + ",";
+		str += myformat.format(getLatency()) + ",";
+		str += myformat.format(getHitRate());
+		return str;
+	}
+
+}

@@ -1,0 +1,312 @@
+package Simulator.CachingStrategy;
+
+import java.util.*;
+
+import Simulator.*;
+import Simulator.Peer.*;
+import Simulator.Utility.*;
+
+
+public class MyCachingStrategy implements ICachingStrategy
+{
+	public MyCachingStrategy()
+	{
+		System.out.println("My Caching");
+	}
+
+	public void join(Simulator sim, int pid)
+	{
+
+		cacheAlg(sim, pid);
+
+		// the following code is to randomly cache segments
+		// only for evaluating the performance of MyCaching over time
+		/*
+		 * PeerCollection pc = sim.getPeerCollection(); Peer p = pc.get(pid);
+		 * Random r = new Random(); while (p.residualCachingCapacity() > 0 &&
+		 * p.numCachedSegments() < sim.getConfig().numSegment) { int num =
+		 * r.nextInt(sim.getConfig().numSegment); if (!p.cached(num)) {
+		 * p.cacheSegment(num); } }
+		 */
+	}
+
+	public void cache(Simulator sim)
+	{
+
+		PeerCollection pc = sim.getPeerCollection();
+		PeerCollectionIterator iter = new PeerCollectionIterator(pc.iterator());
+
+		for (int i = 0; i < 1; ++i)
+		{ // iterate 5 times
+			System.out.println("MyCaching iteration " + i + "/5");
+			iter.set(pc.iterator());
+			while (iter.hasNext())
+			{
+				Peer p = iter.next();
+				System.out.println("pid = " + p.pid);
+				if (sim.serverID != p.pid)
+					cacheAlg(sim, p.pid);
+			}
+		}
+
+		// calculate the remaining capacity
+		int resiCap = 0;
+		iter.set(sim.getPeerCollection().iterator());
+		while (iter.hasNext())
+		{
+			Peer p = iter.next();
+			resiCap += p.residualCachingCapacity();
+		}
+		System.out.println("Finallly, residual cap = " + resiCap);
+	}
+
+	public static final int SURPLUS = 1;
+	public static final int DEFICIT = 2;
+	public static final int MATCH = 3;
+
+	public void cacheAlg(Simulator sim, int pid)
+	{
+		// initialization
+		Config config = sim.getConfig();
+		double[] p = new double[config.numSegment];
+		double[] s = new double[config.numSegment];
+		copyArray(sim.getPopularity(), p, config.numSegment);
+		copyArray(sim.getSupply(), s, config.numSegment);
+		int[] label = new int[config.numSegment];
+		for (int sid = 0; sid < config.numSegment; sid++)
+		{
+			label[sid] = labelSegment(sid, p, s, config.epsilon);
+		}
+		Peer peer = sim.getPeerCollection().get(pid);
+		
+		// maps that contains the information of segments
+		// ranked by the supply and demand in the network
+		TreeMap<Double, Integer> mapSur = new TreeMap<Double, Integer>(); // surplus segments
+		TreeMap<Double, Integer> mapDef = new TreeMap<Double, Integer>(); // deficit segments
+		TreeMap<Double, Integer> mapMat1 = new TreeMap<Double, Integer>(); // storing cost
+		TreeMap<Double, Integer> mapMat2 = new TreeMap<Double, Integer>(); // storing gain
+
+		/*
+		 * System.out.println("cacheAlg pid=" + pid);
+		 * System.out.println("Popularity"); DecimalFormat myformat = new
+		 * DecimalFormat("0.0000"); for (int i=0; i<config.numSegment; i++) {
+		 * System.out.print(i + "(" + myformat.format(p[i]) + ") ");
+		 * 
+		 * } System.out.println(""); System.out.println("Supply"); for (int i=0;
+		 * i<config.numSegment; i++) { System.out.print(i + "(" +
+		 * myformat.format(s[i]) + ") "); } System.out.println("");
+		 */
+		// System.out.println("label");
+
+		for (int sid = 0; sid < config.numSegment; sid++)
+		{
+
+			if (peer.cached(sid) && label[sid] == SURPLUS)
+			{
+				mapSur.put(s[sid] - p[sid], sid);
+			}
+			if (!peer.cached(sid) && label[sid] == DEFICIT)
+			{
+				mapDef.put(p[sid] - s[sid], sid);
+			}
+			if (peer.cached(sid) && label[sid] == MATCH)
+			{
+				double cost = computeCost(sim, sid, p, pid,
+						config.randomPeerSetSize);
+				// System.out.println("cost = " + cost);
+				mapMat1.put(cost, sid);
+			}
+			if (!peer.cached(sid) && label[sid] == MATCH)
+			{
+				double gain = computeGain(sim, sid, p, pid,
+						config.randomPeerSetSize);
+				// System.out.println("gain = " + gain);
+				mapMat2.put(gain, sid);
+			}
+			// System.out.print(sid + "(" + label[sid] + ") ");
+		}
+
+		// System.out.println("");
+
+		// Popularity-Supply Match
+		while (mapSur.size() > 0)
+		{
+			int sid = popLast(mapSur);
+			double prob = probabilityReplace(sid, p, s);
+			
+			// this test means if the tossing result is greater than
+			// or equal to the replacement probability, we will 
+			// replace the segment
+			if (flipCoin(prob) == 1)
+			{
+				peer.removeSegment(sid);
+			}
+		}
+
+		while (peer.residualCachingCapacity() > 0 && mapDef.size() > 0)
+		{
+			int sid = popLast(mapDef);
+			double prob = probabilityCache(sid, p, s, mapDef);
+			if (flipCoin(prob) == 1)
+			{
+				peer.cacheSegment(sid);
+			}
+		}
+
+		// System.out.println("Popularity-Supply Match Finish");
+
+		// Latency Reduction
+		while (peer.residualCachingCapacity() > 0 && mapMat2.size() > 0)
+		{
+			int sid = popLast(mapMat2);
+			peer.cacheSegment(sid);
+		}
+
+		while (mapMat1.size() > 0 && mapMat2.size() > 0)
+		{
+			Map.Entry<Double, Integer> oldEntry = mapMat1.firstEntry();
+			Map.Entry<Double, Integer> newEntry = mapMat2.lastEntry();
+			int oldSid = oldEntry.getValue();
+			int newSid = newEntry.getValue();
+			double cost = oldEntry.getKey();
+			double gain = newEntry.getKey();
+			mapMat1.remove(cost);
+			mapMat2.remove(gain);
+			if (gain - cost <= 0)
+				break;
+			peer.replaceSegment(oldSid, newSid);
+		}
+
+		// System.out.println("Latency Reduction Finish");
+
+		// for those who still have space 
+		// caching randomly until there's no more free space
+		RandomGenerator rg = new RandomGenerator(p, config.numSegment);
+		while (peer.residualCachingCapacity() > 0
+				&& peer.numCachedSegments() < config.numSegment)
+		{
+			int index = rg.generate();
+			while (peer.cached(index))
+			{
+				index = rg.generate();
+			}
+			peer.cacheSegment(index);
+		}
+		// System.out.println("--------------------------");
+	}
+
+	public void copyArray(double[] oldArr, double[] newArr, int size)
+	{
+		for (int i = 0; i < size; i++)
+		{
+			newArr[i] = oldArr[i];
+		}
+	}
+
+	public int popFirst(TreeMap<Double, Integer> map)
+	{
+		return map.pollFirstEntry().getValue();
+		/*	double key = map.firstEntry().getKey();
+		int value = map.firstEntry().getValue();
+		map.remove(key);
+		return value;*/	
+	}
+
+	public int popLast(TreeMap<Double, Integer> map)
+	{
+		return map.pollLastEntry().getValue();
+		/*double key = map.lastEntry().getKey();
+		int value = map.lastEntry().getValue();
+		map.remove(key);
+		return value;*/
+	}
+
+	/**
+	 * label the elements with respect to their demand-supply discrepancy
+	 * 
+	 * @param sid	segment id
+	 * @param p		segment popularity
+	 * @param s		segment supply
+	 * @param epilson	the threshold
+	 * @return
+	 */
+	public int labelSegment(int sid, double[] p, double[] s, double epilson)
+	{
+		if ((s[sid] - p[sid]) / s[sid] > epilson)
+		{
+			return SURPLUS;
+		}
+		else if ((p[sid] - s[sid]) / s[sid] > epilson)
+		{
+			return DEFICIT;
+		}
+		else
+		{
+			return MATCH;
+		}
+	}
+
+	public double probabilityReplace(int sid, double[] p, double[] s)
+	{
+		return (s[sid] - p[sid]) / s[sid];
+	}
+
+	public double probabilityCache(int sid, double[] p, double[] s,
+			TreeMap<Double, Integer> mapDef)
+	{
+		Iterator<Map.Entry<Double, Integer>> iter = mapDef.descendingMap()
+				.entrySet().iterator();
+		double denominator = 0;
+		while (iter.hasNext())
+		{
+			Map.Entry<Double, Integer> entry = iter.next();
+			denominator += p[entry.getValue()] - s[entry.getValue()];
+		}
+		double numerator = p[sid] - s[sid];
+		return numerator / denominator;
+	}
+
+	public double computeCost(Simulator sim, int sid, double[] p, int selfPid,
+			int randomPeerSetSize)
+	{
+		TreeSet<Integer> peerSet = sim.getRandomPeerSet(randomPeerSetSize);
+		Iterator<Integer> iter = peerSet.iterator();
+		double cost = 0;
+		Distance dist = sim.getDistance();
+		while (iter.hasNext())
+		{
+			int pid = iter.next();
+			cost += Math.max(sim.getD2(pid, sid) - dist.d[pid][selfPid], 0);
+		}
+		cost = cost * p[sid];
+		return cost;
+	}
+
+	public double computeGain(Simulator sim, int sid, double[] p, int selfPid,
+			int randomPeerSetSize)
+	{
+		TreeSet<Integer> peerSet = sim.getRandomPeerSet(randomPeerSetSize);
+		Iterator<Integer> iter = peerSet.iterator();
+		double gain = 0;
+		Distance dist = sim.getDistance();
+		while (iter.hasNext())
+		{
+			int pid = iter.next();
+			gain += Math.max(sim.getD1(pid, sid) - dist.d[pid][selfPid], 0);
+		}
+		gain = gain * p[sid];
+		return gain;
+	}
+
+	/**
+	 * choose the appropriate index based on the bias
+	 * 
+	 * @param bias
+	 * @return	the index
+	 */
+	public int flipCoin(double bias)
+	{
+		RandomGenerator rg = new RandomGenerator(bias);
+		return rg.generate();
+	}
+}

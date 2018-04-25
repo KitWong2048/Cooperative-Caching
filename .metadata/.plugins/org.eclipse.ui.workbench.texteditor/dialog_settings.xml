@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
+		<item value="double key = map.lastEntry().getKey();&#x0D;&#x0A;&#x09;&#x09;int value = map.lastEntry().getValue();&#x0D;&#x0A;&#x09;&#x09;map.remove(key);&#x0D;&#x0A;&#x09;&#x09;return value;" key="selection"/>
+		<list key="findhistory">
+			<item value="double key = map.lastEntry().getKey();"/>
+			<item value="&#x09;/*"/>
+		</list>
+	</section>
+</section>

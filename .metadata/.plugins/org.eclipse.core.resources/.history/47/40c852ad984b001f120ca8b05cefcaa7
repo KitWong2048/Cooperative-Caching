@@ -1,0 +1,6 @@
+package Simulator.CachingStrategy;
+
+public class CooperativeCaching
+{
+
+}

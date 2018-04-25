@@ -1,0 +1,43 @@
+package Simulator.CachingStrategy;
+
+import Simulator.Simulator;
+import Simulator.Config;
+import Simulator.Peer.Peer;
+import Simulator.Peer.PeerCollection;
+import Simulator.Utility.RandomGenerator;
+
+public class SlidingWindowCaching implements ICachingStrategy
+{
+	public SlidingWindowCaching()
+	{
+		System.out.println("Sliding Window Caching");
+	}
+
+	/**
+	 * 
+	 */
+	public void join(Simulator sim, int pid)
+	{
+		PeerCollection pc = sim.getPeerCollection();
+		Peer p = pc.get(pid);
+		double[] popularity = sim.getPopularity();
+		Config config = sim.getConfig();
+		RandomGenerator rg = new RandomGenerator(popularity, config.numSegment);
+		int index = rg.generate();
+		while (p.residualCachingCapacity() > 0
+				&& p.numCachedSegments() < config.numSegment)
+		{
+			p.cacheSegment(index);
+			index--;
+			if (index < 0)
+			{
+				index += sim.getConfig().numSegment;
+			}
+		}
+	}
+
+	public void cache(Simulator sim)
+	{
+		// nothing
+	}
+}

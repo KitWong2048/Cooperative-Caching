@@ -1,0 +1,2 @@
+fake:
+	javac *.java

@@ -1,0 +1,204 @@
+package Simulator;
+
+import java.io.*;
+
+//import java.text.*;
+
+/**
+ * The class deal with distance issues
+ */
+public class Distance
+{
+
+	public int[][] d;
+
+	// Read the Brite topology configuration and calculate the distance
+	// We will do this once and for all. The result calculated will be stored
+	// in a file for future work 
+	public void readBrite(String filein, String fileout)
+	{
+		double[][] g;
+		int numNode;
+		try
+		{
+			System.out.println("read BRITE topology " + filein);
+			String line = new String();
+			String tmpStr = new String();
+			int startPos, endPos, numEdge;
+			BufferedReader br = new BufferedReader(new FileReader(filein));
+			for (int i = 0; i < 5; i++)
+			{
+				br.readLine();
+			}
+			line = br.readLine();
+			startPos = 9;
+			endPos = line.indexOf(" )");
+			tmpStr = line.substring(startPos, endPos);
+			System.out.println(tmpStr);
+			numNode = Integer.parseInt(tmpStr);
+			System.out.println("Num nodes: " + numNode);
+
+			g = new double[numNode][numNode];
+
+			line = br.readLine();
+			String[] sResult = line.split("\t");
+			int startNodeID = Integer.parseInt(sResult[0]);
+
+			for (int i = 0; i < numNode + 1; i++)
+			{
+				br.readLine();
+			}
+			line = br.readLine();
+			endPos = line.indexOf(" )");
+			tmpStr = line.substring(startPos, endPos);
+			numEdge = Integer.parseInt(tmpStr);
+			System.out.println("No of edges: " + numEdge);
+
+			for (int i = 0; i < numNode; i++)
+			{
+				for (int j = 0; j < numNode; j++)
+				{
+					if (i == j)
+					{
+						g[i][j] = 0;
+					}
+					else
+					{
+						g[i][j] = 999999;
+					}
+				}
+			}
+			for (int i = 0; i < numEdge; i++)
+			{
+				line = br.readLine();
+				// System.out.println(line);
+				String[] splitResult = line.split("\t");
+				int v1, v2;
+				double delay;
+				v1 = Integer.parseInt(splitResult[1]) - startNodeID;
+				v2 = Integer.parseInt(splitResult[2]) - startNodeID;
+				delay = Double.parseDouble(splitResult[4]);
+				g[v1][v2] = delay;
+				g[v2][v1] = delay;
+			}
+			br.close();
+
+			// compute shortest path using Floyd and Warshal
+			System.out.println("Compute shortest path");
+			for (int k = 0; k < numNode; k++)
+			{
+				for (int i = 0; i < numNode; i++)
+				{
+					for (int j = 0; j < numNode; j++)
+					{
+						g[i][j] = Math.min(g[i][j], g[i][k] + g[k][j]);
+					}
+				}
+			}
+
+			// normalize delay matrix
+			// int maxi = 0, maxj = 1;
+			double maxdelay = g[0][1];
+			for (int i = 0; i < numNode; i++)
+			{
+				for (int j = i + 1; j < numNode; j++)
+				{
+					if (g[i][j] > maxdelay)
+					{
+						maxdelay = g[i][j];
+						// maxi = i;
+						// maxj = j;
+					}
+				}
+			}
+
+			// normalize delay to max value 1 second
+			double ratio = 1000.0 / maxdelay;
+			for (int i = 0; i < numNode; i++)
+			{
+				for (int j = 0; j < numNode; j++)
+				{
+					g[i][j] *= ratio;
+				}
+			}
+
+			// write file
+			System.out.println("write to distance file " + fileout);
+			PrintWriter pw = new PrintWriter(new FileWriter(fileout));
+			for (int i = 0; i < numNode; i++)
+			{
+				for (int j = 0; j < numNode; j++)
+				{
+					// DecimalFormat myformat = new DecimalFormat("0.000000");
+					// pw.print(myformat.format(g[i][j]));
+					Double realNum = new Double(g[i][j]);
+					int num = realNum.intValue();
+					pw.print(num);
+					if (j < numNode - 1)
+					{
+						pw.print(" ");
+					}
+				}
+				pw.println();
+			}
+			pw.close();
+			System.out.println("Finish!");
+		}
+		catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+			System.exit(1);
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(1);
+		}
+		finally
+		{
+			// TODO: wrap up the stuff
+		}
+	}
+
+	// parse the distance data from the file
+	public void readDistance(String file, int numNode)
+	{
+		System.out.println("allocate memory for distance");
+		d = new int[numNode][numNode];
+
+		try
+		{
+			System.out.println("read distance file " + file);
+			BufferedReader br = new BufferedReader(new FileReader(file));
+			String line = new String();
+
+			for (int i = 0; i < numNode; i++)
+			{
+				line = br.readLine();
+				String[] splitResult = line.split(" ");
+				int size = splitResult.length;
+				if (size != numNode)
+				{
+					System.out.println(size);
+					System.out.println("wrong distance format");
+					System.exit(1);
+				}
+				for (int j = 0; j < numNode; j++)
+				{
+					d[i][j] = Integer.parseInt(splitResult[j]);
+				}
+			}
+			br.close();
+			System.out.println("Finish reading distance file");
+		}
+		catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+			System.exit(1);
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+	}
+}

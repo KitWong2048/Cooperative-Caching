@@ -1,0 +1,182 @@
+package Simulator;
+
+import java.io.*;
+import java.text.*;
+
+public class Config
+{
+	public int cachingScheme;
+	public int searchScheme;
+	public int cachingCapacityScheme;
+	public double cachingCapacity;
+	public int duration;
+	public int topologySize;
+	public String distanceFile;
+	public int numSegment;
+	public double lambda;
+	public double tau;
+	public int exchangePeriod;
+	public int numCloseNeighbor;
+	public int numRandomNeighbor;
+	public int tableRowSize;
+	public int maxTTL;
+	public double epsilon;
+	public int randomPeerSetSize;
+	public int floodingTTL;
+
+	public static final int ZIPF_CAPACITY = 1;
+	public static final int UNIFORM_CAPACITY = 2;
+	public static final int GEOMETRIC_CAPACITY = 3;
+
+	// read the data from the file
+	public void read(String file)
+	{
+
+		String line;
+		try
+		{
+			BufferedReader br = new BufferedReader(new FileReader(file));
+
+			line = readline(br);
+			cachingScheme = Integer.parseInt(line);
+
+			line = readline(br);
+			searchScheme = Integer.parseInt(line);
+
+			line = readline(br);
+			cachingCapacityScheme = Integer.parseInt(line);
+
+			line = readline(br);
+			cachingCapacity = Double.parseDouble(line);
+
+			line = readline(br);
+			duration = Integer.parseInt(line);
+
+			line = readline(br);
+			topologySize = Integer.parseInt(line);
+
+			distanceFile = readline(br);
+
+			line = readline(br);
+			numSegment = Integer.parseInt(line);
+
+			line = readline(br);
+			lambda = Double.parseDouble(line);
+
+			line = readline(br);
+			tau = Double.parseDouble(line);
+
+			line = readline(br);
+			exchangePeriod = Integer.parseInt(line);
+
+			line = readline(br);
+			numCloseNeighbor = Integer.parseInt(line);
+
+			line = readline(br);
+			numRandomNeighbor = Integer.parseInt(line);
+
+			line = readline(br);
+			tableRowSize = Integer.parseInt(line);
+
+			line = readline(br);
+			maxTTL = Integer.parseInt(line);
+
+			line = readline(br);
+			epsilon = Double.parseDouble(line);
+
+			line = readline(br);
+			randomPeerSetSize = Integer.parseInt(line);
+
+			line = readline(br);
+			floodingTTL = Integer.parseInt(line);
+
+			br.close();
+		}
+		catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+			System.exit(1);
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(1);
+		}
+	}
+
+	// read set the data by hands.....
+	public void set(int cachingScheme, int searchScheme,
+			int cachingCapacityScheme, double cachingCapacity, int duration,
+			int topologySize, String distanceFile, int numSegment,
+			double lambda, double tau, int exchangePeriod,
+			int numCloseNeighbor, int numRandomNeighbor, int tableRowSize,
+			int maxTTL, double epsilon, int randomPeerSetSize, int floodingTTL)
+	{
+		this.cachingScheme = cachingScheme;
+		this.searchScheme = searchScheme;
+		this.cachingCapacityScheme = cachingCapacityScheme;
+		this.cachingCapacity = cachingCapacity;
+		this.duration = duration;
+		this.topologySize = topologySize;
+		this.distanceFile = distanceFile;
+		this.numSegment = numSegment;
+		this.lambda = lambda;
+		this.tau = tau;
+		this.exchangePeriod = exchangePeriod;
+		this.numCloseNeighbor = numCloseNeighbor;
+		this.numRandomNeighbor = numRandomNeighbor;
+		this.tableRowSize = tableRowSize;
+		this.maxTTL = maxTTL;
+		this.epsilon = epsilon;
+		this.randomPeerSetSize = randomPeerSetSize;
+		this.floodingTTL = floodingTTL;
+	}
+
+	public int numPeer()
+	{
+		Double n = new Double(lambda * tau);
+		return n.intValue();
+	}
+
+	private String readline(BufferedReader br)
+	{
+		String line = new String();
+		do
+		{
+			try
+			{
+				line = br.readLine();
+			}
+			catch (IOException e)
+			{
+				e.printStackTrace();
+			}
+		} while (line.startsWith("#"));
+		return line;
+	}
+
+	public String toString()
+	{
+		DecimalFormat myformat = new DecimalFormat("0.0000");
+		String str = new String();
+		str += cachingScheme + ",";
+		str += searchScheme + ",";
+		str += cachingCapacityScheme + ",";
+		str += myformat.format(cachingCapacity) + ",";
+		str += duration + ",";
+		str += topologySize + ",";
+		str += distanceFile + ",";
+		str += numSegment + ",";
+		str += myformat.format(lambda) + ",";
+		str += myformat.format(tau) + ",";
+		str += exchangePeriod + ",";
+		str += numCloseNeighbor + ",";
+		str += numRandomNeighbor + ",";
+		str += tableRowSize + ",";
+		str += maxTTL + ",";
+		str += epsilon + ",";
+		str += randomPeerSetSize + ",";
+		str += floodingTTL;
+		return str;
+	}
+}
